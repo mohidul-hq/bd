@@ -37,21 +37,37 @@ const setLocalData = async () => {
 //Remote initialization
 const setRemoteData = async () => {
   try {
-    let res = await axios.get(picPath, {
-      responseType: "arraybuffer",
-    });
-    const pic = res.data;
+    let pic;
+    let picUrl;
+    try {
+      picUrl = new URL(picPath);
+    } catch (error) {
+      if (!(error instanceof TypeError)) throw error;
+    }
+    if (picUrl) {
+      const res = await axios.get(picUrl.href, {
+        responseType: "arraybuffer",
+      });
+      pic = res.data;
+    } else pic = path.join(__dirname, "../local/", picPath);
     let markup = "";
     if (msgPath) {
-      const article = msgPath.split("/").pop();
-      res = await axios.get(
-        `https://api.telegra.ph/getPage/${article}?return_content=true`
-      );
-      const { content } = res.data.result;
-      markup = content.reduce(
-        (string, node) => string + generateMarkupRemote(node),
-        ""
-      );
+      const localMessagePath = path.join(__dirname, "../local/", msgPath);
+      if (fs.existsSync(localMessagePath)) {
+        markup = generateMarkupLocal(
+          fs.readFileSync(localMessagePath, { encoding: "utf-8" })
+        );
+      } else {
+        const article = msgPath.split("/").pop();
+        const res = await axios.get(
+          `https://api.telegra.ph/getPage/${article}?return_content=true`
+        );
+        const { content } = res.data.result;
+        markup = content.reduce(
+          (string, node) => string + generateMarkupRemote(node),
+          ""
+        );
+      }
     }
     await setPic(pic);
     genIndex(markup);
